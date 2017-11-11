@@ -50,6 +50,14 @@ int main (int argc, char *argv[]){
 
     //envia nome arquivo
     //printf("\ntamanho buffer %d\n", tamBuffer);
+
+    //chamar tp_mtu()
+    int tamanhoMTU = tp_mtu();
+    if( strlen(nomeArquivo) > tamanhoMTU){
+        printf("Erro: tamanho do nome do arquivo maior que %d (tp_mtu)\n", tamanhoMTU);
+        return 1;
+    }
+
     tp_sendto(clientefd, nomeArquivo, strlen(nomeArquivo), remoto);
 
     int bytesRecebidos = 0;

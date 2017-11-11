@@ -12,6 +12,11 @@
 #define NUM_PARAMS_SERVIDOR 3
 #define NUM_PARAMS_CLIENTE 5
 
+typedef struct pacote{
+    long id;
+    char *buffer;
+}Pacote;
+
 //verifica se portoServidor e tamBuffer são inteiros
 int VerificaEntradas(char *portoServidor, char *tamBuffer)
 {
