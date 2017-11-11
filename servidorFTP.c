@@ -29,11 +29,6 @@ int main (int argc, char *argv[]){
     char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *nomeArquivo = (char*) calloc (256 ,sizeof(char));
     FILE *arquivo;
 
-    // setando cabeçalho do pacote
-    Pacote *pacote = (Pacote*) malloc (sizeof(Pacote));
-    pacote.buffer = (char*) calloc (tamBuffer ,sizeof(char));
-    pacote.id = 1;
-
     //cria um socket com a porta portoServidor
     servidorfd = tp_socket(portoServidor);    
     if(servidorfd < 0){
@@ -41,34 +36,25 @@ int main (int argc, char *argv[]){
         return 1;
     }
 
-    // recebe o nome do arquivo
     tp_recvfrom(servidorfd, nomeArquivo, 256, cliente);
+
     arquivo = fopen(nomeArquivo, "r");
     if(!arquivo){
         perror("fopen");
         return -1;
     }
-
+    int a = 0;
     //loop para transferência de dados entre servidor e cliente
     size_t bytesLidos = 0;
-    int ack = 1; //ack = 1 -> pacote enviado com sucesso, ack = 0 -> pacote não enviado com sucesso
-
-    struct timeval  tvEnvio, tvAposEnvio;
-    gettimeofday(&tvInicial, NULL);
-
     while (!feof(arquivo)) {
-        memset(pacote.buffer, 0x0, tamBuffer);
+        memset(buffer, 0x0, tamBuffer);
+        bytesLidos = fread(buffer, tamBuffer, 1, arquivo);
 
-        id(ack == 1){
-            bytesLidos = fread(pacote.buffer, tamBuffer, 1, arquivo);
-            pacote.id++;
-    
-            //chamar tp_mtu()
-    
-            if(tp_sendto(servidorfd, buffer, tamBuffer, cliente) < 0){
-                printf("Erro ao enviar dados\n");
-                return 1;
-            }
+        //chamar tp_mtu()
+
+        if(tp_sendto(servidorfd, buffer, tamBuffer, cliente) < 0){
+            printf("Erro ao enviar dados\n");
+            return 1;
         }
     }
 
