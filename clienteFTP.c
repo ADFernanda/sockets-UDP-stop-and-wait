@@ -27,7 +27,7 @@ int main (int argc, char *argv[]){
 
     so_addr *remoto = (so_addr*) malloc (sizeof(so_addr));
     int tamBuffer = atoi(argv[4]), portoServidor = atoi(argv[2]), clientefd, len = sizeof(remoto), slen, i=0;
-    char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *hostServidor = argv[1], *nomeArquivo = argv[3];
+    char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *hostServidor = argv[1], *nomeArquivo = argv[3], *ack = "0", *nack = "1";
     FILE *arquivoRecebido = fopen("arquivoRecebido", "w+");
     double taxa = 0;
     unsigned int tempoGastoMs = 0, numBytes = 0;
@@ -64,12 +64,19 @@ int main (int argc, char *argv[]){
 
     tp_sendto(clientefd, nomeArquivo, strlen(nomeArquivo), remoto);
 
+    struct timeval tv;
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+    if (setsockopt(clientefd, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
+        perror("Error");
+    }
+
     int bytesRecebidos = 0;
     while(1){
         memset(buffer, 0x0, tamBuffer);
         bytesRecebidos = tp_recvfrom(clientefd, buffer, tamBuffer, remoto);
         if(bytesRecebidos > 0){
-            printf("%s", buffer);
+            printf("BUFFER: %s", buffer);
 
             // sequencia de caracteres que indica fim do arquivo recebido
             if(strcmp("fechar arquivo: 123456789",buffer) == 0){
@@ -77,17 +84,32 @@ int main (int argc, char *argv[]){
             }else{
                 pch = strtok (buffer,"/");
                 idRecebido = atoi(pch);
-                printf("\nids: %d %d\n\n", idRecebido, id);
                 if(idRecebido == id+1){
+                    
                     pch = strtok (NULL, "\0");
     
                     fwrite (pch , sizeof(char), strlen(pch), arquivoRecebido);
                     id++;
+
+                    if( tp_sendto(clientefd, ack, strlen(ack), remoto) < 0){
+                        printf("Erro ao enviar ACK\n");
+                        return 1;
+                    }
+                } else{
+                    printf("\n\nEnviando NACK\n\n");
+                    if( tp_sendto(clientefd, nack, strlen(nack), remoto) < 0){
+                        printf("Erro ao enviar NACK\n");
+                        return 1;
+                    }
                 }
             }            
-        }else{            
-            break;
-        }           
+        }else{                       
+            printf("\n\ntimeout\n\n");
+            if( tp_sendto(clientefd, nack, strlen(nack), remoto) < 0){
+                printf("Erro ao enviar NACK\n");
+                return 1;
+            }
+        }            
     }
 
     fclose(arquivoRecebido);

@@ -26,7 +26,7 @@ int main (int argc, char *argv[]){
     so_addr *servidor = (so_addr*) malloc (sizeof(so_addr)), *cliente = (so_addr*) malloc (sizeof(so_addr));
     int tamBuffer = atoi(argv[2]), portoServidor = atoi(argv[1]), servidorfd, clientefd,
         sizeCliente = sizeof(cliente), slen;
-    char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *nomeArquivo = (char*) calloc (256 ,sizeof(char));
+    char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *nomeArquivo = (char*) calloc (256 ,sizeof(char)),*ack = (char*) calloc (1 ,sizeof(char));
     FILE *arquivo;
     char *stringId = (char*) calloc (20 ,sizeof(char)), *str=(char*) calloc (tamBuffer+25 ,sizeof(char));;
     int id = 1;
@@ -48,27 +48,42 @@ int main (int argc, char *argv[]){
     int a = 0;
     //loop para transferência de dados entre servidor e cliente
     size_t bytesLidos = 0;
+int teste;
+    sprintf (ack,"0");
     while (!feof(arquivo)) {
-        memset(buffer, 0x0, tamBuffer);
-        memset(str, 0x0, tamBuffer+25);
-        
 
         //chamar tp_mtu()
+
+        scanf("%d", &teste);
+
+        if(strcmp("0",ack) == 0){// ack recebido
+            memset(buffer, 0x0, tamBuffer);
+            memset(str, 0x0, tamBuffer+25);
+            
+            sprintf (stringId,"%d",id);
+            strcat( str, stringId);
+            strcat( str, "/");
+            
+            bytesLidos = fread(buffer, tamBuffer - strlen(str), 1, arquivo);
+            
+            strcat( str, buffer);
+            if(tp_sendto(servidorfd, str, tamBuffer, cliente) < 0){
+                printf("Erro ao enviar dados\n");
+                return 1;
+            }
+            id++;
+        }else{
+            if(tp_sendto(servidorfd, str, tamBuffer, cliente) < 0){
+                printf("Erro ao enviar dados\n");
+                return 1;
+            }
+        }
     
-        printf("\n1\n");
-        sprintf (stringId,"%d",id);
-        strcat( str, stringId);
-        strcat( str, "/");
-        
-        bytesLidos = fread(buffer, tamBuffer - strlen(str), 1, arquivo);
-        
-        strcat( str, buffer);
-        printf("\n1 %s\n", str);
-        if(tp_sendto(servidorfd, str, tamBuffer, cliente) < 0){
-            printf("Erro ao enviar dados\n");
+        //espera ACK
+        if(tp_recvfrom(servidorfd, ack, 1, cliente) < 0){
+            printf("Erro ao receber ACK/NACK dados\n");
             return 1;
         }
-        id++;
     }
 
     if(tp_sendto(servidorfd, "fechar arquivo: 123456789", 26, cliente) < 0){
