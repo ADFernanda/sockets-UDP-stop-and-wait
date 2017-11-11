@@ -33,6 +33,10 @@ int main (int argc, char *argv[]){
     unsigned int tempoGastoMs = 0, numBytes = 0;
     double numKbytes = 0;
 
+    char *stringId = (char*) calloc (20 ,sizeof(char)), *str=(char*) calloc (tamBuffer+25 ,sizeof(char));;
+    int id = 0, idRecebido = 0;
+    char * pch;
+
     struct timeval  tvInicial, tvFinal;
     gettimeofday(&tvInicial, NULL);
     
@@ -66,36 +70,25 @@ int main (int argc, char *argv[]){
         bytesRecebidos = tp_recvfrom(clientefd, buffer, tamBuffer, remoto);
         if(bytesRecebidos > 0){
             printf("%s", buffer);
+
+            // sequencia de caracteres que indica fim do arquivo recebido
             if(strcmp("fechar arquivo: 123456789",buffer) == 0){
                 break;
             }else{
-                fwrite (buffer , sizeof(char), strlen(buffer), arquivoRecebido);
-                i++;
+                pch = strtok (buffer,"/");
+                idRecebido = atoi(pch);
+                printf("\nids: %d %d\n\n", idRecebido, id);
+                if(idRecebido == id+1){
+                    pch = strtok (NULL, "\0");
+    
+                    fwrite (pch , sizeof(char), strlen(pch), arquivoRecebido);
+                    id++;
+                }
             }            
         }else{            
             break;
         }           
     }
-
-    // //calculos para tempo gasto e taxa
-    // numBytes = i * tamBuffer;
-    // numKbytes = numBytes/1000;
-    
-    // gettimeofday(&tvFinal, NULL);
-    // unsigned int time_in_sec = (tvFinal.tv_sec) -  (tvInicial.tv_sec);
-    // unsigned int time_in_mill = (tvFinal.tv_usec / 1000) - (tvInicial.tv_usec / 1000); // convert tv_sec & tv_usec to millisecond
-
-    // if(time_in_mill == 0){
-    //     taxa = 0;
-    // }
-    // else if(time_in_sec == 0){
-    //     taxa = (double)numKbytes/time_in_mill;
-    //     taxa = taxa*1000;
-    // }else{
-    //     taxa = (double)numKbytes/time_in_sec;
-    // }
-
-    // printf("Buffer = \%5u byte(s), \%10.2f kbps (\%u bytes em \%3u.\%06u s)\n", tamBuffer, taxa, numBytes, time_in_sec, time_in_mill);
 
     fclose(arquivoRecebido);
 

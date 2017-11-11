@@ -28,6 +28,8 @@ int main (int argc, char *argv[]){
         sizeCliente = sizeof(cliente), slen;
     char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *nomeArquivo = (char*) calloc (256 ,sizeof(char));
     FILE *arquivo;
+    char *stringId = (char*) calloc (20 ,sizeof(char)), *str=(char*) calloc (tamBuffer+25 ,sizeof(char));;
+    int id = 1;
 
     //cria um socket com a porta portoServidor
     servidorfd = tp_socket(portoServidor);    
@@ -48,14 +50,25 @@ int main (int argc, char *argv[]){
     size_t bytesLidos = 0;
     while (!feof(arquivo)) {
         memset(buffer, 0x0, tamBuffer);
-        bytesLidos = fread(buffer, tamBuffer, 1, arquivo);
+        memset(str, 0x0, tamBuffer+25);
+        
 
         //chamar tp_mtu()
-
-        if(tp_sendto(servidorfd, buffer, tamBuffer, cliente) < 0){
+    
+        printf("\n1\n");
+        sprintf (stringId,"%d",id);
+        strcat( str, stringId);
+        strcat( str, "/");
+        
+        bytesLidos = fread(buffer, tamBuffer - strlen(str), 1, arquivo);
+        
+        strcat( str, buffer);
+        printf("\n1 %s\n", str);
+        if(tp_sendto(servidorfd, str, tamBuffer, cliente) < 0){
             printf("Erro ao enviar dados\n");
             return 1;
         }
+        id++;
     }
 
     if(tp_sendto(servidorfd, "fechar arquivo: 123456789", 26, cliente) < 0){
