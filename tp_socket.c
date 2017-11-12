@@ -9,7 +9,7 @@
 
 #include "tp_socket.h"
 
-#define MTU 1024 
+#define MTU 5000 
 
 int tp_mtu(void)
 {

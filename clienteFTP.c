@@ -24,7 +24,7 @@ int main (int argc, char *argv[]){
     so_addr *remoto = (so_addr*) malloc (sizeof(so_addr));
     int tamBuffer = atoi(argv[4]) + 11, portoServidor = atoi(argv[2]), clientefd;
     char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *hostServidor = argv[1], *nomeArquivo = argv[3], *ack = "0", *nack = "1";
-    FILE *arquivoRecebido = fopen("arquivoRecebido", "w+");
+    FILE *arquivoRecebido = fopen(nomeArquivo, "w+");
     double taxa = 0;
     unsigned int numBytes = 0;
     double numKbytes = 0;
@@ -74,6 +74,7 @@ int main (int argc, char *argv[]){
 
     // while para recebimento do arquivo
     int bytesRecebidos = 0;
+    
     while(1){
         memset(buffer, 0x0, tamBuffer);
         bytesRecebidos = tp_recvfrom(clientefd, buffer, tamBuffer, remoto);
