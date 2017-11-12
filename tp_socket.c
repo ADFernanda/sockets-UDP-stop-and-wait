@@ -50,7 +50,6 @@ int tp_recvfrom(int so, char* buff, int buff_len, so_addr* from_addr)
      *******************************************************/
     count = recvfrom(so,(void*)buff,(size_t)buff_len,0,
             (struct sockaddr*) from_addr, &sockaddr_len);
-            perror("recvfrom");
     fprintf(stderr,"tp_recvfrom returning (received %d bytes)\n",count);
     return count;
 }

@@ -23,13 +23,17 @@ int main (int argc, char *argv[]){
         return 1;
     }
 
-    so_addr *servidor = (so_addr*) malloc (sizeof(so_addr)), *cliente = (so_addr*) malloc (sizeof(so_addr));
-    int tamBuffer = atoi(argv[2]), portoServidor = atoi(argv[1]), servidorfd, clientefd,
-        sizeCliente = sizeof(cliente), slen;
+    so_addr *cliente = (so_addr*) malloc (sizeof(so_addr));
+    int tamBuffer = atoi(argv[2]) + 11, portoServidor = atoi(argv[1]), servidorfd, clientefd;
     char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *nomeArquivo = (char*) calloc (256 ,sizeof(char)),*ack = (char*) calloc (1 ,sizeof(char));
     FILE *arquivo;
     char *stringId = (char*) calloc (20 ,sizeof(char)), *str=(char*) calloc (tamBuffer+25 ,sizeof(char));;
     int id = 1;
+
+    if(tp_mtu() < tamBuffer){
+        printf("Erro: buffer (buffer informado + 11 bytes de cabeçalho) maior que MTU");
+        return 1;
+    }
 
     //cria um socket com a porta portoServidor
     servidorfd = tp_socket(portoServidor);    
@@ -45,16 +49,12 @@ int main (int argc, char *argv[]){
         perror("fopen");
         return -1;
     }
-    int a = 0;
+
     //loop para transferência de dados entre servidor e cliente
-    size_t bytesLidos = 0;
-int teste;
     sprintf (ack,"0");
     while (!feof(arquivo)) {
 
         //chamar tp_mtu()
-
-        scanf("%d", &teste);
 
         if(strcmp("0",ack) == 0){// ack recebido
             memset(buffer, 0x0, tamBuffer);
@@ -64,7 +64,7 @@ int teste;
             strcat( str, stringId);
             strcat( str, "/");
             
-            bytesLidos = fread(buffer, tamBuffer - strlen(str), 1, arquivo);
+            fread(buffer, tamBuffer - strlen(str), 1, arquivo);
             
             strcat( str, buffer);
             if(tp_sendto(servidorfd, str, tamBuffer, cliente) < 0){
@@ -86,7 +86,7 @@ int teste;
         }
     }
 
-    if(tp_sendto(servidorfd, "fechar arquivo: 123456789", 26, cliente) < 0){
+    if(tp_sendto(servidorfd, "0", 2, cliente) < 0){
         printf("Erro ao enviar dados de fechamento do arquivo\n");
         return 1;
     }

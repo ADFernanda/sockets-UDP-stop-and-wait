@@ -26,7 +26,7 @@ int main (int argc, char *argv[]){
     }
 
     so_addr *remoto = (so_addr*) malloc (sizeof(so_addr));
-    int tamBuffer = atoi(argv[4]), portoServidor = atoi(argv[2]), clientefd, len = sizeof(remoto), slen, i=0;
+    int tamBuffer = atoi(argv[4]) + 11, portoServidor = atoi(argv[2]), clientefd, len = sizeof(remoto), slen, i=0;
     char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *hostServidor = argv[1], *nomeArquivo = argv[3], *ack = "0", *nack = "1";
     FILE *arquivoRecebido = fopen("arquivoRecebido", "w+");
     double taxa = 0;
@@ -35,7 +35,12 @@ int main (int argc, char *argv[]){
 
     char *stringId = (char*) calloc (20 ,sizeof(char)), *str=(char*) calloc (tamBuffer+25 ,sizeof(char));;
     int id = 0, idRecebido = 0;
-    char * pch;
+    char * strtokBuffer;
+
+    if(tp_mtu() < tamBuffer){
+        printf("Erro: buffer (buffer informado + 11 bytes de cabeçalho) maior que MTU");
+        return 1;
+    }
 
     struct timeval  tvInicial, tvFinal;
     gettimeofday(&tvInicial, NULL);
@@ -65,7 +70,7 @@ int main (int argc, char *argv[]){
     tp_sendto(clientefd, nomeArquivo, strlen(nomeArquivo), remoto);
 
     struct timeval tv;
-    tv.tv_sec = 5;
+    tv.tv_sec = 1;
     tv.tv_usec = 0;
     if (setsockopt(clientefd, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
         perror("Error");
@@ -75,20 +80,20 @@ int main (int argc, char *argv[]){
     while(1){
         memset(buffer, 0x0, tamBuffer);
         bytesRecebidos = tp_recvfrom(clientefd, buffer, tamBuffer, remoto);
-        if(bytesRecebidos > 0){
-            printf("BUFFER: %s", buffer);
+
+        if(bytesRecebidos > 0){            
 
             // sequencia de caracteres que indica fim do arquivo recebido
-            if(strcmp("fechar arquivo: 123456789",buffer) == 0){
+            if(strcmp("0",buffer) == 0){
                 break;
             }else{
-                pch = strtok (buffer,"/");
-                idRecebido = atoi(pch);
+                strtokBuffer = strtok (buffer,"/");
+                idRecebido = atoi(strtokBuffer);
                 if(idRecebido == id+1){
                     
-                    pch = strtok (NULL, "\0");
-    
-                    fwrite (pch , sizeof(char), strlen(pch), arquivoRecebido);
+                    strtokBuffer = strtok (NULL, "\0");
+                    numBytes += (double)strlen(strtokBuffer);
+                    fwrite (strtokBuffer , sizeof(char), strlen(strtokBuffer), arquivoRecebido);
                     id++;
 
                     if( tp_sendto(clientefd, ack, strlen(ack), remoto) < 0){
@@ -96,7 +101,6 @@ int main (int argc, char *argv[]){
                         return 1;
                     }
                 } else{
-                    printf("\n\nEnviando NACK\n\n");
                     if( tp_sendto(clientefd, nack, strlen(nack), remoto) < 0){
                         printf("Erro ao enviar NACK\n");
                         return 1;
@@ -104,7 +108,6 @@ int main (int argc, char *argv[]){
                 }
             }            
         }else{                       
-            printf("\n\ntimeout\n\n");
             if( tp_sendto(clientefd, nack, strlen(nack), remoto) < 0){
                 printf("Erro ao enviar NACK\n");
                 return 1;
@@ -113,6 +116,24 @@ int main (int argc, char *argv[]){
     }
 
     fclose(arquivoRecebido);
+
+    //calculos para tempo gasto e taxa
+    numKbytes = (double)numBytes/1000;
+    
+    gettimeofday(&tvFinal, NULL);
+    unsigned int time_in_sec = (tvFinal.tv_sec) -  (tvInicial.tv_sec);
+    unsigned int time_in_mill = (tvFinal.tv_usec / 1000) - (tvInicial.tv_usec / 1000); // convert tv_sec & tv_usec to millisecond
+
+    if(time_in_mill == 0){
+        taxa = numBytes;
+    }
+    else if(time_in_sec == 0){
+        taxa = (double)numKbytes*1000;
+    }else{
+        taxa = (double)numKbytes/time_in_sec;
+    }
+
+    printf("Buffer = \%5u byte(s), \%10.2f kbps (\%u bytes em \%3u.\%06u s)\n", atoi(argv[4]), taxa, numBytes, time_in_sec, time_in_mill);
 
     return 0;
 }
