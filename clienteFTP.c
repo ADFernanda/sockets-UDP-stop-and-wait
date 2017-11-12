@@ -1,9 +1,5 @@
 #include "lib.h"
 #include "tp_socket.h"
-#include <arpa/inet.h>
-
-
-// void RecebeArquivo(){}
 
 int main (int argc, char *argv[]){
 
@@ -26,24 +22,25 @@ int main (int argc, char *argv[]){
     }
 
     so_addr *remoto = (so_addr*) malloc (sizeof(so_addr));
-    int tamBuffer = atoi(argv[4]) + 11, portoServidor = atoi(argv[2]), clientefd, len = sizeof(remoto), slen, i=0;
+    int tamBuffer = atoi(argv[4]) + 11, portoServidor = atoi(argv[2]), clientefd;
     char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *hostServidor = argv[1], *nomeArquivo = argv[3], *ack = "0", *nack = "1";
     FILE *arquivoRecebido = fopen("arquivoRecebido", "w+");
     double taxa = 0;
-    unsigned int tempoGastoMs = 0, numBytes = 0;
+    unsigned int numBytes = 0;
     double numKbytes = 0;
 
     char *stringId = (char*) calloc (20 ,sizeof(char)), *str=(char*) calloc (tamBuffer+25 ,sizeof(char));;
     int id = 0, idRecebido = 0;
-    char * strtokBuffer;
+    char * strtokBuffer;    
 
+    struct timeval  tvInicial, tvFinal;
+    gettimeofday(&tvInicial, NULL);
+
+    //verifica se tamanho do buffer é compatível com a MTU
     if(tp_mtu() < tamBuffer){
         printf("Erro: buffer (buffer informado + 11 bytes de cabeçalho) maior que MTU");
         return 1;
     }
-
-    struct timeval  tvInicial, tvFinal;
-    gettimeofday(&tvInicial, NULL);
     
     //cria um socket com a porta passada
     clientefd = tp_socket(0);
@@ -52,23 +49,22 @@ int main (int argc, char *argv[]){
         return 1;
     }
 
+    // configura servidor
     if(tp_build_addr(remoto, hostServidor, portoServidor) < 0){
         printf("Erro ao chamar tp_build_addr\n");
         return 1;
     }
 
-    //envia nome arquivo
-    //printf("\ntamanho buffer %d\n", tamBuffer);
-
-    //chamar tp_mtu()
-    int tamanhoMTU = tp_mtu();
-    if( strlen(nomeArquivo) > tamanhoMTU){
-        printf("Erro: tamanho do nome do arquivo maior que %d (tp_mtu)\n", tamanhoMTU);
+    // verifica se o nome do arquivo é maior que MTU
+    if( strlen(nomeArquivo) > tp_mtu()){
+        printf("Erro: tamanho do nome do arquivo maior que MTU (tp_mtu)\n");
         return 1;
     }
 
+    //envia nome do arquivo
     tp_sendto(clientefd, nomeArquivo, strlen(nomeArquivo), remoto);
 
+    // configura timeout
     struct timeval tv;
     tv.tv_sec = 1;
     tv.tv_usec = 0;
@@ -76,20 +72,20 @@ int main (int argc, char *argv[]){
         perror("Error");
     }
 
+    // while para recebimento do arquivo
     int bytesRecebidos = 0;
     while(1){
         memset(buffer, 0x0, tamBuffer);
         bytesRecebidos = tp_recvfrom(clientefd, buffer, tamBuffer, remoto);
 
         if(bytesRecebidos > 0){            
-
-            // sequencia de caracteres que indica fim do arquivo recebido
-            if(strcmp("0",buffer) == 0){
+            
+            if(strcmp("0",buffer) == 0){// sequencia de caracteres que indica fim do arquivo recebido
                 break;
             }else{
                 strtokBuffer = strtok (buffer,"/");
                 idRecebido = atoi(strtokBuffer);
-                if(idRecebido == id+1){
+                if(idRecebido == id+1){ // verifica se a ordem dos dados recebidos está correta e caso positivo, escreve dados no arquivo
                     
                     strtokBuffer = strtok (NULL, "\0");
                     numBytes += (double)strlen(strtokBuffer);
@@ -100,22 +96,20 @@ int main (int argc, char *argv[]){
                         printf("Erro ao enviar ACK\n");
                         return 1;
                     }
-                } else{
+                } else{ //envia NACK ao receber dados fora de ordem                   
                     if( tp_sendto(clientefd, nack, strlen(nack), remoto) < 0){
                         printf("Erro ao enviar NACK\n");
                         return 1;
                     }
                 }
             }            
-        }else{                       
+        }else{//envia NACK ao ocorrer timeout             
             if( tp_sendto(clientefd, nack, strlen(nack), remoto) < 0){
                 printf("Erro ao enviar NACK\n");
                 return 1;
             }
         }            
     }
-
-    fclose(arquivoRecebido);
 
     //calculos para tempo gasto e taxa
     numKbytes = (double)numBytes/1000;
@@ -134,6 +128,12 @@ int main (int argc, char *argv[]){
     }
 
     printf("Buffer = \%5u byte(s), \%10.2f kbps (\%u bytes em \%3u.\%06u s)\n", atoi(argv[4]), taxa, numBytes, time_in_sec, time_in_mill);
+
+    fclose(arquivoRecebido);
+    free(remoto);
+    free(buffer);
+    free(stringId);
+    free(str);
 
     return 0;
 }

@@ -24,12 +24,13 @@ int main (int argc, char *argv[]){
     }
 
     so_addr *cliente = (so_addr*) malloc (sizeof(so_addr));
-    int tamBuffer = atoi(argv[2]) + 11, portoServidor = atoi(argv[1]), servidorfd, clientefd;
+    int tamBuffer = atoi(argv[2]) + 11, portoServidor = atoi(argv[1]), servidorfd;
     char *buffer = (char*) calloc (tamBuffer ,sizeof(char)), *nomeArquivo = (char*) calloc (256 ,sizeof(char)),*ack = (char*) calloc (1 ,sizeof(char));
     FILE *arquivo;
     char *stringId = (char*) calloc (20 ,sizeof(char)), *str=(char*) calloc (tamBuffer+25 ,sizeof(char));;
     int id = 1;
 
+    //verifica se tamanho do buffer é compatível com a MTU
     if(tp_mtu() < tamBuffer){
         printf("Erro: buffer (buffer informado + 11 bytes de cabeçalho) maior que MTU");
         return 1;
@@ -42,8 +43,10 @@ int main (int argc, char *argv[]){
         return 1;
     }
 
+    //recebe nome do arquivo
     tp_recvfrom(servidorfd, nomeArquivo, 256, cliente);
 
+    //abre arquivo
     arquivo = fopen(nomeArquivo, "r");
     if(!arquivo){
         perror("fopen");
@@ -54,9 +57,7 @@ int main (int argc, char *argv[]){
     sprintf (ack,"0");
     while (!feof(arquivo)) {
 
-        //chamar tp_mtu()
-
-        if(strcmp("0",ack) == 0){// ack recebido
+        if(strcmp("0",ack) == 0){// ack recebido, envia próximo buffer
             memset(buffer, 0x0, tamBuffer);
             memset(str, 0x0, tamBuffer+25);
             
@@ -72,28 +73,33 @@ int main (int argc, char *argv[]){
                 return 1;
             }
             id++;
-        }else{
+        }else{// reenvia o último buffer após receber NACK do envio anterior
             if(tp_sendto(servidorfd, str, tamBuffer, cliente) < 0){
                 printf("Erro ao enviar dados\n");
                 return 1;
             }
         }
     
-        //espera ACK
+        //espera ACK/NACK
         if(tp_recvfrom(servidorfd, ack, 1, cliente) < 0){
             printf("Erro ao receber ACK/NACK dados\n");
             return 1;
         }
     }
 
+    // Envia caracter que fecha a conexão
     if(tp_sendto(servidorfd, "0", 2, cliente) < 0){
         printf("Erro ao enviar dados de fechamento do arquivo\n");
         return 1;
     }
 
-    // fclose(arquivo);
-    // free(buffer);
-    // close(servidorfd);
-    // close(clientefd);
+    fclose(arquivo);
+    free(buffer);
+    free(nomeArquivo);
+    free(ack);
+    free(stringId);
+    free(str);
+    free(cliente);
+    close(servidorfd);
     return 0;
 }
